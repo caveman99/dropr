@@ -1,5 +1,8 @@
 <?php
-class ClientApiTest extends PHPUnit_Framework_TestCase
+
+use PHPUnit\Framework\TestCase;
+
+class ClientApiTest extends TestCase
 {
 	
 	/**
@@ -14,17 +17,19 @@ class ClientApiTest extends PHPUnit_Framework_TestCase
 
     public function setUp()
 	{
-        require '../../classes/dropr.php';		
+        require_once dirname(__FILE__) . '/../../classes/dropr.php';
 
-        $this->storage = dropr_Client_Storage_Abstract::factory('filesystem', '/var/spool/dropr/client');
+        $this->storage = dropr_Client_Storage_Abstract::factory('filesystem', '/tmp/spool/dropr/client');
         $this->queue = new dropr_Client($this->storage);
 	}
 
-	public function testPut()
+    /**
+     * @test
+     */
+	public function put()
 	{
 		$peer = dropr_Client_Peer_Abstract::getInstance('HttpUpload', 'http://localhost/droprserver/');
 
-    	$dt = time();
         $i=0;
         // $m = $this->createMessage(1000);
         
@@ -35,12 +40,8 @@ class ClientApiTest extends PHPUnit_Framework_TestCase
 		    $msg = $this->queue->createMessage($m, $peer);
 	        $msg->queue();
             $i++;
-            echo '.';
         }
-        
-        $dt = time() - $dt;
-        echo $dt."\n";
-	    echo "\n\n";
+        $this->anything();
 	}
 	
 

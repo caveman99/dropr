@@ -41,58 +41,31 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
+namespace cubos\dropr\Log;
+
+/*
+ * dropr syslog Logging 
  * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
+ * Used for the client daemon
  * 
- * @author Soenke Ruempler
+ * @author     Soenke Ruempler <soenke@jimdo.com>
  */
-
-use PHPUnit\Framework\TestCase;
-
-class LocalFilesystemTransportTest extends TestCase
+class Syslog implements Log
 {
     /**
-     * @var FilesystemStorage
+     * whether we've done openlog
      */
-    private $storage;
-    
-    private $dir;
+    private static $syslogInitialized = false;
 
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
+    /**
+     * Log a message
+     */
+    public function log($message, $level)
     {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
+        if (!self::$syslogInitialized) {
+            openlog('dropr', LOG_ODELAY | LOG_PID, LOG_DAEMON);
+            self::$syslogInitialized = true;
         }
+        syslog($level, $message);        
     }
 }

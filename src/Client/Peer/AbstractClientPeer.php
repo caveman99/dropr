@@ -41,58 +41,78 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
- * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
- * 
- * @author Soenke Ruempler
- */
+namespace cubos\dropr\Client\Peer;
 
-use PHPUnit\Framework\TestCase;
+use cubos\dropr\Client\ClientMessage;
+use cubos\dropr\Client\DroprClientException;
 
-class LocalFilesystemTransportTest extends TestCase
+abstract class AbstractClientPeer
 {
+    private static $instances = array();
+
+    private $transportMethod;
+    private $peerUrl;
+    private $key;
+
     /**
-     * @var FilesystemStorage
+     * Singleton-Factory for Peer-Instances
+     *
+     * @param string $method
+     * @param string $url
+     *
+     * @return AbstractClientPeer
      */
-    private $storage;
-    
-    private $dir;
-
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
+    public static function getInstance($method, $url = false)
     {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
+        if ($url === false) {
+            if (!list($method, $url) = explode(';', $method)) {
+                throw new DroprClientException("Could not explode method and url from '$method'");
+            }
         }
+
+        $key = $method . ';' . $url;
+        if (!isset(self::$instances[$key])) {
+            // Guess the classname from transport method
+            $className = 'dropr_Client_Peer_' . ucfirst($method);
+            self::$instances[$key] = new $className($method, $url);
+        }
+
+        return self::$instances[$key];
     }
+    
+    protected function __construct($method, $url)
+    {
+        $this->transportMethod = $method;
+        $this->peerUrl = $url;
+        $this->key = $method.';'.$url;
+    }
+
+    public function getTransportMethod()
+    {
+        return $this->transportMethod;
+    }
+
+    public function getUrl()
+    {
+        return $this->peerUrl;
+    }
+
+    public function getKey() {
+        return $this->key;
+    }
+
+    abstract public function send(array &$messages);    
+
+    /**
+     * sends a message directly and give feedback immediately
+     * 
+     * this isn't implemented for now ...
+     *
+     * @param $message ClientMessage
+     *
+     * @return string	the answer
+     *
+     * @throws	DroprClientException	If something went wrong
+     */
+    abstract public function sendDirectly(ClientMessage $message);
 }

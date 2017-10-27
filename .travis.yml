@@ -1,0 +1,12 @@
+language: php
+php:
+  - '5.6'
+  - '7.0'
+  - '7.1'
+services:
+    - mysql
+before_install:
+  - mysql -e 'CREATE DATABASE dropr;'
+  - mysql dropr < resources/schema.sql'
+install: composer install
+script: vendor/bin/phpunit

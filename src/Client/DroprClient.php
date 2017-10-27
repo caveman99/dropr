@@ -41,58 +41,81 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
- * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
- * 
- * @author Soenke Ruempler
- */
+namespace cubos\dropr\Client;
 
-use PHPUnit\Framework\TestCase;
+use Exception;
+use cubos\dropr\Client\Storage\AbstractClientStorage;
 
-class LocalFilesystemTransportTest extends TestCase
+class DroprClient
 {
-    /**
-     * @var FilesystemStorage
-     */
+
+	/**
+	 * @var	AbstractClientStorage
+	 */
     private $storage;
     
-    private $dir;
+    private $ipcChannel;
 
-    public function setUp()
+	public function __construct(AbstractClientStorage $storage)
 	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
+	    $ipcPath       = DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'droprIpc' . DIRECTORY_SEPARATOR;
+	    $channelName   = $ipcPath . hash('sha1', realpath($storage->getDsn()));
+        $this->storage = $storage;
 
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
-    {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
+        if (!is_dir($ipcPath)) {
+            mkdir($ipcPath, 0777, true);
         }
+        if (!is_file($channelName)) {
+            if (!posix_mknod($channelName, 0666)) {
+            	throw new Exception("could not mknod $channelName!");
+            }    
+        }
+        // TODO pass logger using DI
+        //dropr::log("doing ftok($channelName)", LOG_DEBUG);
+        $this->ipcChannel = msg_get_queue(ftok($channelName, '*'));
+	}
+
+	public function getIpcChannel()
+	{
+	    return $this->ipcChannel;
+	}
+
+    public function putMessage(&$message)
+    {
+        $messageId = $this->storage->saveMessage($message);
+
+        // notify queue via ipc
+        $ipcStat = msg_stat_queue($this->ipcChannel);
+
+        if (is_array($ipcStat) && ($ipcStat['msg_qnum'] < 5)) {
+
+            msg_send($this->ipcChannel, 1, '*', false, false, $ipcError);
+        }
+        return $messageId;
     }
+
+	/**
+	 * @return ClientMessage
+	 */
+    public function createMessage(
+	    &$message = NULL,
+	    $peer = NULL,
+	    $channel = 'common',
+	    $priority = 9,
+	    $sync = NULL)
+	{
+	    return new ClientMessage(
+	        $this,
+	        $message,
+	        $peer,
+	        $channel,
+	        $priority,
+	        $sync
+        );
+	}
+
+	public function getStorage()
+	{
+	    return $this->storage;
+	}
 }
