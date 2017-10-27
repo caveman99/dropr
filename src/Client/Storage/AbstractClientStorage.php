@@ -41,58 +41,69 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
- * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
- * 
- * @author Soenke Ruempler
- */
+namespace cubos\dropr\Client\Storage;
 
-use PHPUnit\Framework\TestCase;
+use cubos\dropr\Client\ClientMessage;
+use cubos\dropr\Client\Peer\AbstractClientPeer;
 
-class LocalFilesystemTransportTest extends TestCase
+abstract class AbstractClientStorage
 {
-    /**
-     * @var FilesystemStorage
-     */
-    private $storage;
+    const TYPE_STREAM = 1;
+    const TYPE_MEMORY = 2;
+    const TYPE_FILE   = 3;
+    const TYPE_DB     = 4;
+
+    private static $instances = array();
     
-    private $dir;
-
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
+    private $dsn;
+    
+    public static function factory($type, $dsn)
     {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
+        if (!isset(self::$instances[$dsn])) {
+            // Guess the classname from the dsn
+            $className = 'dropr_Client_Storage_' . ucfirst($type);
+            self::$instances[$dsn] = new $className($dsn);
+            self::$instances[$dsn]->dsn = $dsn;
         }
+        
+        return self::$instances[$dsn];
     }
+
+    protected function __construct($dsn)
+    {
+        $this->dsn = $dsn;
+    }
+
+    public function getDsn()
+    {
+        return $this->dsn;
+    }
+    
+	/**
+     * @return int	identifier of the message in queue
+     */
+    abstract public function saveMessage(ClientMessage $message);
+    
+    /**
+     * returns the most recent messages  out of the storage ordered by
+     * priority and create-time
+     * 
+     * @return array	An array of dropr_Client_Message objects 
+     */
+    abstract public function getQueuedMessages($limit = null, &$peerKeyBlackList = null);
+    
+    /**
+     * @return ClientMessage
+     */
+    abstract public function getMessage($messageId, AbstractClientPeer $peer);
+    
+    abstract public function getType();
+
+    abstract public function checkSentMessages(array &$messages, array &$result);
+
+    abstract public function countQueuedMessages();
+
+    abstract public function countSentMessages();
+
+    abstract public function wipeSentMessages($olderThanMinutes);
 }

@@ -41,58 +41,22 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
+namespace cubos\dropr\Server;
+
+use Exception;
+
 /**
- * test example for bypassing the client queue for local delivery
+ * Classes implementing this interface can directly be invoked by the
+ * Server-API and they are able to send an answer right back to the client
  * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
- * 
- * @author Soenke Ruempler
+ * this is very useful if you can't wait for an asyncronous answer
+ *  
  */
-
-use PHPUnit\Framework\TestCase;
-
-class LocalFilesystemTransportTest extends TestCase
+interface DirectInvocation
 {
     /**
-     * @var FilesystemStorage
+     * @return 	string			the
+     * @throws	Exception		
      */
-    private $storage;
-    
-    private $dir;
-
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
-    {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
-        }
-    }
+    public function invokeMessage(ServerMessage $message);
 }

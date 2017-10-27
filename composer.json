@@ -1,0 +1,25 @@
+{
+    "name": "cubos/dropr",
+    "description": "A message queue written in PHP",
+    "config": {
+        "platform": {
+            "php": "5.6.31"
+        }
+    },
+    "license": "BSD",
+    "require-dev": {
+      "phpunit/phpunit": "^5.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "cubos\\dropr": "src/"
+        }
+    },
+    "bin": [
+      "bin/client/dropr",
+      "bin/client/droprd",
+      "bin/client/dropcmd",
+      "bin/client/client_queue.php",
+      "bin/server/dropcmd.php"
+    ]
+}

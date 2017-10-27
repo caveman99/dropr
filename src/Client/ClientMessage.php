@@ -41,58 +41,81 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
- * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
- * 
- * @author Soenke Ruempler
- */
+namespace cubos\dropr\Client;
 
-use PHPUnit\Framework\TestCase;
+use cubos\dropr\Client\Peer\AbstractClientPeer;
 
-class LocalFilesystemTransportTest extends TestCase
+class ClientMessage
 {
     /**
-     * @var FilesystemStorage
-     */
-    private $storage;
-    
-    private $dir;
+	 * @var DroprClient
+	 */
+    private $queue;
+    private $message;    
 
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
+    /**
+	 * @var AbstractClientPeer
+	 */
+    private $peer;
 
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
+    private $channel;
+    private $priority;
+    private $sync;
+
+    private $messageId = NULL;
+    private $state = NULL;
+
+    public function __construct(
+        DroprClient $queue = NULL,
+        &$message = NULL,
+        AbstractClientPeer $peer = NULL,
+        $channel = 'common',
+        $priority = 9,
+        $sync = NULL)
     {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
-        }
+        $this->queue = $queue;
+        $this->message = &$message;
+        $this->peer = $peer;
+        $this->channel = $channel;
+        $this->priority = $priority;
+        $this->sync = $sync;
+    }
+
+    public function &getMessage()
+    {
+        return $this->message;
+    }
+
+    /**
+	 * @return AbstractClientPeer
+	 */
+    
+    public function getPeer()
+    {
+        return $this->peer;
+    }
+
+    public function getId()
+    {
+        return $this->messageId;
+    }
+    public function restoreId($messageId)
+    {
+        $this->messageId = $messageId;
+    }
+
+    public function getPriority()
+    {
+        return $this->priority;
+    }
+
+    public function getChannel()
+    {
+        return $this->channel;
+    }
+
+    public function queue()
+    {
+        $this->messageId = $this->queue->putMessage($this);
     }
 }

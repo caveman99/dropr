@@ -41,58 +41,95 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
+namespace cubos\dropr;
+
+use cubos\dropr\Log\Log;
+use cubos\dropr\Log\Errorlog;
+
 /**
- * test example for bypassing the client queue for local delivery
+ * dropr main class
  * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
+ *  - constants
+ *  - logging
  * 
- * @author Soenke Ruempler
+ * @author Soenke Ruempler <soenke@ruempler.eu>
  */
-
-use PHPUnit\Framework\TestCase;
-
-class LocalFilesystemTransportTest extends TestCase
+class dropr 
 {
     /**
-     * @var FilesystemStorage
+     * @var Log
      */
-    private $storage;
+    private static $logger;
+
+    /**
+     * Mapping for error-levels
+     *
+     * @var array
+     */
+    private static $errorLevels = array(
+        LOG_ERR,
+        LOG_CRIT,
+        LOG_WARNING,
+        LOG_INFO,
+        LOG_DEBUG,
+    );
     
-    private $dir;
-
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
+    /**
+     * the current log-level
+     *
+     * @var int
+     */
+    private static $logLevel = LOG_DEBUG;
+    
+    /**
+     * set the log level
+     *
+     * @param mixed $logLevel
+     */
+    public static function setLogLevel($logLevel)
     {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
+    	self::$logLevel = $logLevel;
+    }
+    
+    /**
+     * logging for the dropr services. can be
+     *  - syslog for daemons
+     *  - error_log for http processes
+     * 
+     * currently only syslog is implemented
+     *
+     * @param string    $message
+     * @param int       $level
+     */
+    public static function log($message, $level = LOG_INFO)
+    {
+        if ($level <= self::$logLevel) {
+            self::getLogger()->log($message, $level);
         }
+    }
+
+    /**
+     * set the logger
+     * 
+     * @var $logger     Log
+     */
+    public static function setLogger(Log $logger)
+    {
+        self::$logger = $logger;
+    }
+    
+    /**
+     * Get the Logger instance
+     * 
+     * @return Log
+     */
+    public static function getLogger()
+    {
+        if (!self::$logger) {
+            // get the default error_log logger
+            self::$logger = new Errorlog();
+        }
+        
+        return self::$logger;
     }
 }

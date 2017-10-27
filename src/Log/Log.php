@@ -41,58 +41,21 @@
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
  */
 
-/**
- * test example for bypassing the client queue for local delivery
+namespace cubos\dropr\Log;
+
+/*
+ * dropr Logging interface
  * 
- * basically this is an inter process communication but with 
- * durability (messages are written to a durable storage)
+ * Implement it in your own logging class and set it to dropr via
  * 
- * @author Soenke Ruempler
+ * dropr::setLogger($myLogger);
+ * 
+ * @author     Soenke Ruempler <soenke@jimdo.com>
  */
-
-use PHPUnit\Framework\TestCase;
-
-class LocalFilesystemTransportTest extends TestCase
+interface Log
 {
     /**
-     * @var FilesystemStorage
+     * Log a message
      */
-    private $storage;
-    
-    private $dir;
-
-    public function setUp()
-	{
-        $this->dir = dirname (__FILE__) . '/testspool/server';
-        $this->storage = AbstractStorage::factory('Filesystem', $this->dir);
-	}
-
-	public function testPut()
-	{
-        $message = new ServerMessage(
-            'localhost',
-            uniqid(null, true),
-            $message = 'testmessage',
-            'common',
-            1,
-            time()
-        );
-        
-        $this->storage->put($message);
-        
-        $messages = $this->storage->getMessages('common');
-        
-        $this->assertEquals(1, count($messages));
-        $this->assertEquals('testmessage', (string)$messages[0]);
-        
-        
-	}
-	
-    protected function tearDown()
-    {
-        // cleanup queue
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir)) as $f) {
-            unlink($f);
-        }
-    }
+    public function log($message, $level);
 }
